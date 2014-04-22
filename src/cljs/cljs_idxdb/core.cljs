@@ -28,6 +28,8 @@
           request (. store (put item))]
       (set! (.-onsuccess request) success-fn))))
 
+(declare make-rec-acc-fn)
+
 (defn make-rec-acc-fn [acc request success-fn]
   (fn [e]
     (if-let [cursor (get-target-result e)]
@@ -45,28 +47,3 @@
           range (.lowerBound js/IDBKeyRange 0)
           request (. store (openCursor range))]
       (set! (.-onsuccess request) (make-rec-acc-fn [] request success-fn)))))
-
-;;-------------
-
-(def db nil)
-
-(defn save-db [db-obj]
-  (def db db-obj))
-
-(defn get-timestamp []
-  (.getTime (js/Date.)))
-
-(defn db-schema [db]
-  (when (.. (.-objectStoreNames db) (contains "todo"))
-    (.. db (deleteObjectStore "todo")))
-  (.. db (createObjectStore "todo" (clj->js {:keyPath "timestamp"}))))
-
-
-(defn init-todos []
-  (create-db "todos" 1 db-schema save-db))
-
-(defn add-todo [txt]
-  (add-item db "todo" {:timestamp (get-timestamp) :text txt} log))
-
-(defn print-todos []
-  (get-all db "todo" (fn [todos] (doseq [todo todos] (log (:text todo))))))
