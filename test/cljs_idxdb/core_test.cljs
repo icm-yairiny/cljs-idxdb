@@ -1,5 +1,5 @@
 (ns cljs-idxdb.core-test
-  (:require [cljs-idxdb.core :refer [create-db add-item get-all log]]))
+  (:require [cljs-idxdb.core :refer [create-db add-item get-all get-by-key log]]))
 
 (def db nil)
 
@@ -23,3 +23,6 @@
 
 (defn print-todos []
   (get-all db "todo" (fn [todos] (doseq [todo todos] (log (:text todo))))))
+
+(defn print-single [timestamp]
+  (get-by-key db "todo" timestamp (fn [todo] (log (:text todo)))))

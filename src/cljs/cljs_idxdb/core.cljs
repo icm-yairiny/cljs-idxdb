@@ -28,8 +28,6 @@
           request (. store (put item))]
       (set! (.-onsuccess request) success-fn))))
 
-(declare make-rec-acc-fn)
-
 (defn make-rec-acc-fn [acc request success-fn]
   (fn [e]
     (if-let [cursor (get-target-result e)]
@@ -47,3 +45,10 @@
           range (.lowerBound js/IDBKeyRange 0)
           request (. store (openCursor range))]
       (set! (.-onsuccess request) (make-rec-acc-fn [] request success-fn)))))
+
+(defn get-by-key [db store-name key success-fn]
+  (when db
+    (let [tx (. db (transaction (clj->js [store-name]) "readwrite"))
+          store (. tx (objectStore store-name))
+          request (. store (get key))]
+      (set! (.-onsuccess request) (fn [e] (success-fn (js->clj (get-target-result e) :keywordize-keys true)))))))
