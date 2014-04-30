@@ -6,7 +6,8 @@
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [org.clojure/clojurescript "0.0-2138"]
                  [org.clojure/core.async "0.1.278.0-76b25b-alpha"]
-                 [cljs-defasync "0.1.0-SNAPSHOT"]]
+                 [cljs-defasync "0.1.0-SNAPSHOT"]
+]
   :source-paths ["src/clj" "src/cljs"]
   
   :profiles {:dev {:repl-options {:init-ns cljs-idxdb.core}
