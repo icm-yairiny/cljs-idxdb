@@ -1,6 +1,6 @@
-(defproject cljs-idxdb "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject cljs-idxdb "0.1.0"
+  :description "Clojurescript wrapper around the browser's IndexedDB api"
+  :url "https://github.com/icm-yairiny/cljs-idxdb"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.1"]
