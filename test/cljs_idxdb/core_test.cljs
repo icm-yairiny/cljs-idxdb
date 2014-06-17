@@ -1,21 +1,32 @@
 (ns cljs-idxdb.core-test
   (:require [cljs-idxdb.core :refer
-             [create-db add-item get-all get-by-key log delete-and-create-store create-index get-by-index]]))
+             [add-item get-all get-by-key log delete-and-create-store create-index get-by-index open-cursor get-tx-store]]
+             [cljs.core.async :refer [put! chan <! pub sub]])
+  (:require-macros [cljs.core.async.macros :refer [go]]
+                   [cljs-idxdb.core :refer [request-db docursor]]))
+
+(enable-console-print!)
 
 (def db nil)
 
-(defn save-db [db-obj]
+(defn save-db [{db-obj :db}]
+  (println "SUCCESS!")
   (def db db-obj))
 
 (defn get-timestamp []
   (.getTime (js/Date.)))
 
-(defn db-schema [db]
-  (let [store (delete-and-create-store db "todo" {:keyPath "timestamp"})]
+(defn db-schema [db-ref]
+  (println "UPGRADE!")
+  (let [store (delete-and-create-store db-ref "todo" {:keyPath "timestamp"})]
     (create-index store "priorityIndex" "priority" {:unique false})))
 
 (defn init-todos []
-  (create-db "todos" 3 db-schema save-db))
+  (let [[_ ch] (request-db "todos" 12 db-ref (db-schema db-ref))
+        success-chan (sub ch :success (chan))
+        error-chan (sub ch :error (chan))]
+    (go (-> (<! success-chan) save-db))
+    (go (-> (<! error-chan) println))))
 
 (defn add-todo
   ([txt]
@@ -32,3 +43,5 @@
 (defn print-priorities [priority]
   (get-by-index db "todo" "priorityIndex" priority (fn [todos]
                                                      (doseq [todo todos] (log (str (:priority todo) "-" (:text todo)))))))
+
+

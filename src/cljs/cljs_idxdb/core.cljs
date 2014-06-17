@@ -1,9 +1,9 @@
 (ns cljs-idxdb.core
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [cljs.core.async :refer [put! chan <!]]))
+  (:require [cljs.core.async :as async :refer [chan <! >! put! sub pub]]))
 
 (defn pprint [o]
-  (println (JSON/stringify o nil 2)))
+  (println (.stringify js/JSON o nil 2)))
 
 (defn log [v & text]
   (let [vs (if (string? v)
@@ -13,13 +13,15 @@
     v))
 
 (defn get-target-result [e]
-  (-> e .-target .-result))
+  (when e
+    (-> e .-target .-result)))
 
 (defn error-callback [e]
   (log "error occurred")
   (log e))
 
 (defn delete-store [db name]
+  (println db name (.-objectStoreNames db))
   (when (.. (.-objectStoreNames db) (contains name))
     (.. db (deleteObjectStore name))))
 
@@ -33,11 +35,12 @@
 (defn create-index [store name field opts]
   (.. store (createIndex name field (clj->js opts))))
 
-(defn create-db [name version upgrade-fn success-fn]
-  (let [request (.open js/indexedDB name version)]
-    (set! (.-onsuccess request) (comp success-fn get-target-result))
-    (set! (.-onupgradeneeded request) (comp upgrade-fn get-target-result))
-    (set! (.-onerror request) error-callback)))
+
+(defn handle-callback-chan
+  [ch request topic]
+  (fn [e]
+    (put! ch {:topic topic :db (get-target-result e)})))
+
 
 (defn add-item [db store-name item success-fn]
   (when db
@@ -46,6 +49,7 @@
           store (. tx (objectStore store-name))
           request (. store (put item))]
       (set! (.-onsuccess request) success-fn))))
+
 
 (defn make-rec-acc-fn [acc request success-fn]
   (fn [e]
@@ -75,15 +79,19 @@
        (.lowerBound js/IDBKeyRange bound open?)
        (.upperBound js/IDBKeyRange bound open?)))
   ([lower upper open-lower? open-upper?]
-     (.bound js/IDBKeyRange lower uppoer open-lower? open-upper?)))
+     (.bound js/IDBKeyRange lower upper open-lower? open-upper?)))
 
-(defn open-cursor [store-or-index range]
-  (.openCursor store-or-index range))
+(defn open-cursor
+  ([store-or-index]
+   (.openCursor store-or-index))
+  ([store-or-index range]
+   (.openCursor store-or-index range)))
 
 (defn get-index [store index-name]
   (.index store index-name))
 
 (defn get-all
+  "Get all items in a store"
   ([db store-name success-fn]
      (get-all db store-name 0 success-fn))
   ([db store-name initial-key success-fn]
@@ -107,3 +115,4 @@
              range (make-range true initial-key false)
              request (open-cursor index range)]
          (set! (.-onsuccess request) (make-rec-acc-fn [] request success-fn))))))
+
