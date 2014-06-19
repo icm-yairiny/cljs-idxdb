@@ -51,15 +51,16 @@
       (set! (.-onsuccess request) success-fn))))
 
 
-(defn make-rec-acc-fn [acc request success-fn]
+(defn make-rec-acc-fn [acc request result-ch keywordize-keys?]
   (fn [e]
     (if-let [cursor (get-target-result e)]
       (do
         (set! (.-onsuccess request)
               (make-rec-acc-fn
-               (conj acc (js->clj (.-value cursor) :keywordize-keys true)) request success-fn))
+               (conj acc (js->clj (.-value cursor) :keywordize-keys keywordize-keys?))
+               request result-ch keywordize-keys?))
         (.continue cursor))
-      (success-fn acc))))
+      (put! result-ch acc))))
 
 (defn make-tx
   ([db store-name]
@@ -101,18 +102,34 @@
              request (open-cursor store range)]
          (set! (.-onsuccess request) (make-rec-acc-fn [] request success-fn))))))
 
-(defn get-by-key [db store-name key success-fn]
+(defn get-by-key [db store-name key & {:keys [keywordize-keys] :as opts}]
+  "Search for an item in the given object store by the configured key.
+  Returns a chan that will have the result put on it. If no items are found, puts :not-found on the chan."
   (when db
-    (let [store (get-tx-store db store-name)
+    (let [result-ch (chan 1)
+          store (get-tx-store db store-name)
           request (. store (get key))]
-      (set! (.-onsuccess request) (fn [e] (success-fn (js->clj (get-target-result e) :keywordize-keys true)))))))
+      (set! (.-onsuccess request)
+            (fn [e]
+              (let [result (or (js->clj (get-target-result e) :keywordize-keys keywordize-keys)
+                               :not-found)]
+                (put! result-ch result))))
+      result-ch)))
+
+(defn get-by-index-range
+  "Search for items in the given object store by the given range in the given index.
+  Returns a chan that will have the results as a seq put on it."
+  ([db store-name index-name range & {:keys [keywordize-keys] :as opts}]
+     (when db
+       (let [result-ch (chan 1)
+             store (get-tx-store db store-name)
+             index (get-index store index-name)
+             request (open-cursor index range)]
+         (set! (.-onsuccess request) (make-rec-acc-fn [] request result-ch keywordize-keys))
+         result-ch))))
 
 (defn get-by-index
-  ([db store-name index-name initial-key success-fn]
-     (when db
-       (let [store (get-tx-store db store-name)
-             index (get-index store index-name)
-             range (make-range true initial-key false)
-             request (open-cursor index range)]
-         (set! (.-onsuccess request) (make-rec-acc-fn [] request success-fn))))))
-
+  "Search for items in the given object store by the given value in the given index.
+  Returns a chan that will have the results as a seq put on it."
+  ([db store-name index-name value & {:keys [keywordize-keys] :as opts}]
+     (get-by-index-range db store-name index-name (make-range value) :keywordize-keys keywordize-keys)))
