@@ -12,6 +12,11 @@
     (. js/console (log vs))
     v))
 
+(defn has-name?
+  "Can we apply name on o?"
+  [o]
+  (or (symbol? o) (string? o) (keyword? o)))
+
 (defn get-target-result [e]
   (when e
     (-> e .-target .-result)))
@@ -25,12 +30,22 @@
   (when (.. (.-objectStoreNames db) (contains name))
     (.. db (deleteObjectStore name))))
 
-(defn create-store [db name opts]
-  (.. db (createObjectStore name (clj->js opts))))
+(defn create-store
+  "If the requested store does not exist, creates it in the given db.
+  Returns the store reference.
+  Takes the following options:
+  - :key-path - the path to the key for the objects in the store, either as a single key name, or as a vector that describes a path to the key
+  - :auto-increment - does the object store have a key generator?"
+  [db store-name & {:as opts}]
+  (let [key-path (:key-path opts [])
+        key-path-str (clojure.string/join "." (map #(if (has-name? %) (name %) (str %))
+                                                   (if (vector? key-path) key-path [key-path])))]
+    (.. db (createObjectStore store-name #js {:keyPath key-path-str :autoIncrement (:auto-increment opts)}))))
 
-(defn delete-and-create-store [db name opts]
+
+(defn delete-and-create-store [db name & {:as opts}]
   (delete-store db name)
-  (create-store db name opts))
+  (apply create-store db name opts))
 
 (defn create-index [store name field opts]
   (.. store (createIndex name field (clj->js opts))))

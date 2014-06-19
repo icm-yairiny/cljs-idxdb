@@ -18,7 +18,7 @@
   (.getTime (js/Date.)))
 
 (defn db-schema [db-ref]
-  (let [store (delete-and-create-store db-ref "todo" {:keyPath "timestamp"})]
+  (let [store (delete-and-create-store db-ref "todo" :key-path "timestamp")]
     (create-index store "priorityIndex" "priority" {:unique false})))
 
 (defn init-todos []
