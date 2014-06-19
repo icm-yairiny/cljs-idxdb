@@ -1,7 +1,7 @@
 (ns cljs-idxdb.core-test
   (:require [cljs-idxdb.core :refer
              [add-item get-all get-by-key log delete-and-create-store create-index get-by-index
-              open-cursor get-tx-store make-range get-by-index-range]]
+              open-cursor get-tx-store make-range get-by-index-range get-all-from]]
              [cljs.core.async :refer [put! chan <! pub sub]])
   (:require-macros [cljs.core.async.macros :refer [go]]
                    [cljs-idxdb.core :refer [request-db docursor]]))
@@ -35,7 +35,9 @@
      (add-item db "todo" {:timestamp (get-timestamp) :text txt :priority priority} log)))
 
 (defn print-todos []
-  (get-all db "todo" (fn [todos] (doseq [todo todos] (log (:text todo))))))
+  (let [ch (get-all db "todo" :keywordize-keys true)]
+    (go (doseq [todo (<! ch)]
+          (log (str (:priority todo) "-" (:text todo)))))))
 
 (defn print-single [timestamp]
   (let [result-ch (get-by-key db "todo" timestamp :keywordize-keys true)]

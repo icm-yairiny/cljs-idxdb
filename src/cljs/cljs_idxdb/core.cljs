@@ -91,20 +91,26 @@
 (defn get-index [store index-name]
   (.index store index-name))
 
-(defn get-all
-  "Get all items in a store"
-  ([db store-name success-fn]
-     (get-all db store-name 0 success-fn))
-  ([db store-name initial-key success-fn]
-     (when db
-       (let [store (get-tx-store db store-name)
-             range (make-range true initial-key false)
-             request (open-cursor store range)]
-         (set! (.-onsuccess request) (make-rec-acc-fn [] request success-fn))))))
+(defn get-all-from
+  "Get all items in a store, starting at the given key. Returns a chan that will receive the results"
+  [db store-name initial-key & {:keys [keywordize-keys] :as opts}]
+  (when db
+    (let [result-ch (chan)
+          store (get-tx-store db store-name)
+          range (make-range true initial-key false)
+          request (open-cursor store range)]
+      (set! (.-onsuccess request) (make-rec-acc-fn [] request result-ch keywordize-keys))
+      result-ch)))
 
-(defn get-by-key [db store-name key & {:keys [keywordize-keys] :as opts}]
+(defn get-all
+  "Get all items in a store, returning a chan that will have the values put on it once available."
+  ([db store-name & {:keys [keywordize-keys] :as opts}]
+     (get-all-from db store-name 0 :keywordize-keys keywordize-keys)))
+
+(defn get-by-key
   "Search for an item in the given object store by the configured key.
   Returns a chan that will have the result put on it. If no items are found, puts :not-found on the chan."
+  [db store-name key & {:keys [keywordize-keys] :as opts}]
   (when db
     (let [result-ch (chan 1)
           store (get-tx-store db store-name)
