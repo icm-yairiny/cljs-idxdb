@@ -42,13 +42,22 @@
     (put! ch {:topic topic :db (get-target-result e)})))
 
 
-(defn add-item [db store-name item success-fn]
+(defn add-item
+  "Add the given item to the given store. The item should be a clojure construct, and will be converted to a
+  javascript object prior to being stored. Returns a pub that can be used to subscribe to the following topics:
+  - :success
+  - :error"
+  [db store-name item]
   (when db
-    (let [item (clj->js item)
+    (let [result-ch (chan)
+          publication (pub result-ch :topic)
+          item (clj->js item)
           tx (. db (transaction (clj->js [store-name]) "readwrite"))
           store (. tx (objectStore store-name))
           request (. store (put item))]
-      (set! (.-onsuccess request) success-fn))))
+      (set! (.-onsuccess request) (handle-callback-chan result-ch request :success))
+      (set! (.-onerror request) (handle-callback-chan result-ch request :error))
+      publication)))
 
 
 (defn make-rec-acc-fn [acc request result-ch keywordize-keys?]

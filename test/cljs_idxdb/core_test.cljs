@@ -32,12 +32,13 @@
   ([txt]
      (add-todo txt 1))
   ([txt priority]
-     (add-item db "todo" {:timestamp (get-timestamp) :text txt :priority priority} log)))
+   (let [publ (add-item db "todo" {:timestamp (get-timestamp) :text txt :priority priority})
+         success-ch (sub publ :success (chan))]
+     (go (-> (<! success-ch) log)))))
 
 (defn print-todos []
-  (let [ch (get-all db "todo" :keywordize-keys true)]
-    (go (doseq [todo (<! ch)]
-          (log (str (:priority todo) "-" (:text todo)))))))
+  (go (doseq [todo (<! (get-all db "todo" :keywordize-keys true))]
+        (log (str (:priority todo) "-" (:text todo))))))
 
 (defn print-single [timestamp]
   (let [result-ch (get-by-key db "todo" timestamp :keywordize-keys true)]
@@ -47,4 +48,3 @@
   (let [ch (get-by-index db "todo" "priorityIndex" priority :keywordize-keys true)]
     (go (doseq [todo (<! ch)]
           (log (str (:priority todo) "-" (:text todo)))))))
-
