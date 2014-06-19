@@ -48,3 +48,4 @@
   (let [ch (get-by-index db "todo" "priorityIndex" priority :keywordize-keys true)]
     (go (doseq [todo (<! ch)]
           (log (str (:priority todo) "-" (:text todo)))))))
+

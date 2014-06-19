@@ -118,7 +118,7 @@
 
 (defn get-by-key
   "Search for an item in the given object store by the configured key.
-  Returns a chan that will have the result put on it. If no items are found, puts :not-found on the chan."
+  Returns a chan that will have the result put on it. If no items are found, puts false on the chan."
   [db store-name key & {:keys [keywordize-keys] :as opts}]
   (when db
     (let [result-ch (chan 1)
@@ -126,8 +126,7 @@
           request (. store (get key))]
       (set! (.-onsuccess request)
             (fn [e]
-              (let [result (or (js->clj (get-target-result e) :keywordize-keys keywordize-keys)
-                               :not-found)]
+              (let [result (or (js->clj (get-target-result e) :keywordize-keys keywordize-keys) false)]
                 (put! result-ch result))))
       result-ch)))
 
