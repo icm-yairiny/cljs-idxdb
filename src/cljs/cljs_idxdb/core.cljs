@@ -30,6 +30,14 @@
   (when (.. (.-objectStoreNames db) (contains name))
     (.. db (deleteObjectStore name))))
 
+(defn key-path->str
+  [kp]
+  (->>
+   (if (vector? kp) kp [kp])
+   (map #(if (has-name? %) (name %) (str %)))
+   (clojure.string/join ".")))
+
+
 (defn create-store
   "If the requested store does not exist, creates it in the given db.
   Returns the store reference.
@@ -38,8 +46,7 @@
   - :auto-increment - does the object store have a key generator?"
   [db store-name & {:as opts}]
   (let [key-path (:key-path opts [])
-        key-path-str (clojure.string/join "." (map #(if (has-name? %) (name %) (str %))
-                                                   (if (vector? key-path) key-path [key-path])))]
+        key-path-str (key-path->str key-path)]
     (.. db (createObjectStore store-name #js {:keyPath key-path-str :autoIncrement (:auto-increment opts)}))))
 
 
@@ -73,7 +80,6 @@
       (set! (.-onsuccess request) (handle-callback-chan result-ch request :success))
       (set! (.-onerror request) (handle-callback-chan result-ch request :error))
       publication)))
-
 
 (defn make-rec-acc-fn [acc request result-ch keywordize-keys?]
   (fn [e]
