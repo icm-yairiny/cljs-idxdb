@@ -5,6 +5,18 @@
 (defn pprint [o]
   (println (.stringify js/JSON o nil 2)))
 
+(defn init-indexedDb-var
+  []
+  (set! (.-indexedDB js/window)
+       (or (.-indexedDB js/window)
+           (.-mozIndexedDB js/window)
+           (.-webkitIndexedDB js/window)
+           (.-msIndexedDB js/window)))
+  (set! (.-IDBKeyRange js/window)
+       (or (.-IDBKeyRange js/window)
+           (.-webkitIDBKeyRange js/window)
+           (.-msIDBKeyRange js/window))))
+
 (defn log [v & text]
   (let [vs (if (string? v)
              (apply str v text)
@@ -63,6 +75,19 @@
   (fn [e]
     (put! ch {:topic topic :db (get-target-result e)})))
 
+(defn- do-read-write-store-action
+  "Perform a an action that requires read write access to the given store. Returns a publication
+  for subscribing to either a success or error topic."
+  [db store-name store-action-fn]
+  (when db
+    (let [result-ch (chan)
+          publication (pub result-ch :topic)
+          tx (. db (transaction (clj->js [store-name]) "readwrite"))
+          store (. tx (objectStore store-name))
+          request store-action-fn]
+      (set! (.-onsuccess request) (handle-callback-chan result-ch request :success))
+      (set! (.-onerror request) (handle-callback-chan result-ch request :error))
+      publication)))
 
 (defn add-item
   "Add the given item to the given store. The item should be a clojure construct, and will be converted to a
@@ -70,16 +95,16 @@
   - :success
   - :error"
   [db store-name item]
-  (when db
-    (let [result-ch (chan)
-          publication (pub result-ch :topic)
-          item (clj->js item)
-          tx (. db (transaction (clj->js [store-name]) "readwrite"))
-          store (. tx (objectStore store-name))
-          request (. store (put item))]
-      (set! (.-onsuccess request) (handle-callback-chan result-ch request :success))
-      (set! (.-onerror request) (handle-callback-chan result-ch request :error))
-      publication)))
+  (let [item (clj->js item)]
+    (do-read-write-store-action db store-name #(. % (put item)))))
+
+(defn remove-item
+  "Remove the item from the given store that matches the item-key value.
+  Returns a pub that can be used to subscribe to the following topics:
+  - :success
+  - :error"
+  [db store-name item-key]
+  (do-read-write-store-action db store-name #(. % (delete item-key))))
 
 (defn make-rec-acc-fn [acc request result-ch keywordize-keys?]
   (fn [e]
