@@ -84,7 +84,7 @@
           publication (pub result-ch :topic)
           tx (. db (transaction (clj->js [store-name]) "readwrite"))
           store (. tx (objectStore store-name))
-          request (store-action-fn)]
+          request (store-action-fn store)]
       (set! (.-onsuccess request) (handle-callback-chan result-ch request :success))
       (set! (.-onerror request) (handle-callback-chan result-ch request :error))
       publication)))
