@@ -64,7 +64,7 @@
 
 (defn delete-and-create-store [db name & {:as opts}]
   (delete-store db name)
-  (apply create-store db name opts))
+  (apply create-store db name (apply concat opts)))
 
 (defn create-index [store name field opts]
   (.. store (createIndex name field (clj->js opts))))
